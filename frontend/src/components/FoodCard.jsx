@@ -1,4 +1,5 @@
-import { Clock, AlertTriangle, Trash2, Package } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, AlertTriangle, Trash2, Package, CalendarDays, Check, X } from 'lucide-react';
 
 const categoryIcons = {
   'Lactate': '🥛',
@@ -22,35 +23,50 @@ function getDaysUntilExpiry(expiryDate) {
 }
 
 function getExpiryStatus(days) {
-  if (days === null) return { label: 'Necunoscut', color: 'text-dark-400', bg: 'bg-dark-600' };
-  if (days < 0) return { label: 'Expirat', color: 'text-neon-pink', bg: 'bg-neon-pink/10' };
-  if (days <= 2) return { label: `${days}z rămase`, color: 'text-neon-orange', bg: 'bg-neon-orange/10' };
-  if (days <= 7) return { label: `${days}z rămase`, color: 'text-neon-yellow', bg: 'bg-neon-yellow/10' };
-  return { label: `${days}z rămase`, color: 'text-neon-green', bg: 'bg-neon-green/10' };
+  if (days === null) return { label: 'Necunoscut', class: 'badge-neutral' };
+  if (days < 0) return { label: 'Expirat', class: 'badge-danger' };
+  if (days <= 2) return { label: `${days}z rămase`, class: 'badge-danger' };
+  if (days <= 7) return { label: `${days}z rămase`, class: 'badge-warning' };
+  return { label: `${days}z rămase`, class: 'badge-success' };
 }
 
-export default function FoodCard({ item, onDelete }) {
+function formatDateForInput(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toISOString().split('T')[0];
+}
+
+export default function FoodCard({ item, onDelete, onUpdateExpiry }) {
+  const [editing, setEditing] = useState(false);
+  const [newDate, setNewDate] = useState(formatDateForInput(item.expiryDate));
   const daysLeft = getDaysUntilExpiry(item.expiryDate);
   const status = getExpiryStatus(daysLeft);
   const emoji = categoryIcons[item.category] || categoryIcons['Altele'];
 
-  return (
-    <div className="card group relative overflow-hidden" id={`food-card-${item._id || item.id}`}>
-      {/* Expiry Warning Glow */}
-      {daysLeft !== null && daysLeft <= 2 && (
-        <div className="absolute inset-0 rounded-[20px] bg-gradient-to-br from-neon-pink/5 to-transparent pointer-events-none" />
-      )}
+  const handleSave = () => {
+    if (newDate && onUpdateExpiry) {
+      onUpdateExpiry(item._id || item.id, newDate);
+    }
+    setEditing(false);
+  };
 
-      <div className="relative flex items-start justify-between">
+  const handleCancel = () => {
+    setNewDate(formatDateForInput(item.expiryDate));
+    setEditing(false);
+  };
+
+  return (
+    <div className="card group relative" id={`food-card-${item._id || item.id}`}>
+      <div className="flex items-start justify-between">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div className="text-2xl mt-0.5 flex-shrink-0">{emoji}</div>
           <div className="min-w-0 flex-1">
-            <h4 className="font-semibold text-white text-sm truncate">{item.name}</h4>
-            <p className="text-xs text-dark-400 mt-0.5">{item.category || 'Necategorizat'}</p>
+            <h4 className="font-semibold text-text-primary text-sm truncate">{item.name}</h4>
+            <p className="text-xs text-text-muted mt-0.5">{item.category || 'Necategorizat'}</p>
             <div className="flex items-center gap-2 mt-2">
               <div className="flex items-center gap-1.5">
-                <Package size={12} className="text-dark-400" />
-                <span className="text-xs text-dark-300">{item.quantity || '1'} {item.unit || 'buc'}</span>
+                <Package size={12} className="text-text-muted" />
+                <span className="text-xs text-text-secondary">{Number(item.quantity || 1).toLocaleString('ro-RO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} {item.unit || 'buc'}</span>
               </div>
             </div>
           </div>
@@ -60,23 +76,54 @@ export default function FoodCard({ item, onDelete }) {
         {onDelete && (
           <button
             onClick={() => onDelete(item._id || item.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg bg-neon-pink/10 flex items-center justify-center text-neon-pink hover:bg-neon-pink/20 flex-shrink-0"
+            className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 rounded-lg bg-danger-muted flex items-center justify-center text-danger hover:bg-[rgba(239,68,68,0.2)] flex-shrink-0"
           >
             <Trash2 size={14} />
           </button>
         )}
       </div>
 
-      {/* Expiry Badge */}
-      <div className="mt-3 flex items-center justify-between">
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${status.bg} ${status.color}`}>
-          {daysLeft !== null && daysLeft <= 2 ? <AlertTriangle size={12} /> : <Clock size={12} />}
-          {status.label}
-        </div>
-        {item.addedDate && (
-          <span className="text-[10px] text-dark-500">
-            Adăugat {new Date(item.addedDate).toLocaleDateString('ro-RO')}
-          </span>
+      {/* Expiry Badge + Edit */}
+      <div className="mt-3">
+        {editing ? (
+          <div className="flex items-center gap-2 animate-fade-in">
+            <input
+              type="date"
+              value={newDate}
+              onChange={e => setNewDate(e.target.value)}
+              className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-border bg-bg-surface text-text-primary outline-none focus:border-accent-solid/40"
+              min={new Date().toISOString().split('T')[0]}
+            />
+            <button onClick={handleSave} className="w-7 h-7 rounded-lg bg-success-muted flex items-center justify-center text-success hover:bg-[rgba(34,197,94,0.2)] transition-colors">
+              <Check size={13} />
+            </button>
+            <button onClick={handleCancel} className="w-7 h-7 rounded-lg bg-danger-muted flex items-center justify-center text-danger hover:bg-[rgba(239,68,68,0.2)] transition-colors">
+              <X size={13} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <span className={`badge ${status.class}`}>
+              {daysLeft !== null && daysLeft <= 2 ? <AlertTriangle size={10} /> : <Clock size={10} />}
+              {status.label}
+            </span>
+            <div className="flex items-center gap-2">
+              {item.addedDate && (
+                <span className="text-[10px] text-text-muted">
+                  {new Date(item.addedDate).toLocaleDateString('ro-RO')}
+                </span>
+              )}
+              {onUpdateExpiry && (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-md bg-bg-surface border border-border flex items-center justify-center text-text-muted hover:text-accent-solid hover:border-accent-solid/30"
+                  title="Schimbă data de expirare"
+                >
+                  <CalendarDays size={11} />
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

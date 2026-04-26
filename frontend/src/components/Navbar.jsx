@@ -1,130 +1,131 @@
-import { NavLink } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import {
-  Home, LayoutDashboard, ScanLine, Bot,
-  Wallet, FileText, ChefHat, LogIn, Menu, X
-} from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { LogOut, Menu, X } from 'lucide-react';
+import { logoutUser, getCurrentUser } from '../api/apiClient';
 
 const navItems = [
-  { to: '/', icon: Home, label: 'Acasă' },
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/kitchen', icon: ChefHat, label: 'Bucătărie AI' },
-  { to: '/scan', icon: ScanLine, label: 'Scanează' },
-  { to: '/assistant', icon: Bot, label: 'AI Asistent' },
-  { to: '/budget', icon: Wallet, label: 'Buget' },
-  { to: '/bills', icon: FileText, label: 'Facturi' },
+  { to: '/budget', label: 'FINANCES' },
+  { to: '/kitchen', label: 'REȚETE' },
+  { to: '/scan', label: 'SCANNER' },
+  { to: '/assistant', label: 'AI CHAT' },
+  { to: '/diet', label: 'DIET' },
+  { to: '/bills', label: 'BILLS' },
 ];
 
-export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
+export default function TopNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  const navigate = useNavigate();
+  const user = getCurrentUser();
+  const handleLogout = () => { logoutUser(); navigate('/'); };
 
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled
-          ? 'bg-[rgba(10,15,30,0.85)] backdrop-blur-xl border-b border-[rgba(0,217,255,0.1)] shadow-[0_4px_30px_rgba(0,0,0,0.3)]'
-          : 'bg-transparent'
-      }`}
-      id="main-navbar"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <NavLink to="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-neon-cyan/20 to-neon-blue/10 flex items-center justify-center border border-neon-cyan/20 group-hover:border-neon-cyan/50 transition-all group-hover:shadow-[0_0_20px_rgba(0,217,255,0.2)]">
-              <Home size={18} className="text-neon-cyan" />
-            </div>
-            <div>
-              <h1 className="text-sm font-hud font-bold text-white tracking-wider">SIGKILL</h1>
-              <p className="text-[8px] font-hud text-neon-cyan/60 tracking-[0.2em]">AI HOME</p>
-            </div>
+    <>
+      {/* Desktop floating pill */}
+      <nav style={{
+        position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 100, height: 52,
+        background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(30px) saturate(180%)',
+        border: '1px solid rgba(255,255,255,0.7)', borderRadius: 50,
+        display: 'flex', alignItems: 'center', padding: '0 8px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+        fontFamily: "'Inter',-apple-system,sans-serif",
+      }} className="hidden md:flex" id="main-topnav">
+
+        <NavLink to="/home" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 16px', textDecoration: 'none', flexShrink: 0 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(77,208,200,0.12)', border: '1px solid rgba(77,208,200,0.2)',
+          }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#4dd0c8', fontFamily: "'Georgia',serif" }}>H</span>
+          </div>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#999', letterSpacing: '0.06em', lineHeight: 1.2 }}>HOME<br/>MANAGEMENT</span>
+        </NavLink>
+
+        {navItems.map(item => (
+          <NavLink key={item.to} to={item.to} style={{ textDecoration: 'none' }}>
+            {({ isActive }) => (
+              <span style={{
+                padding: '6px 14px', borderRadius: 50, fontSize: 11, fontWeight: 600,
+                letterSpacing: '0.05em', transition: 'all 0.2s', display: 'block',
+                background: isActive ? 'rgba(77,208,200,0.12)' : 'transparent',
+                color: isActive ? '#0d9488' : '#888',
+              }}
+              onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; e.currentTarget.style.color = '#555'; }}}
+              onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888'; }}}>
+                {item.label}
+              </span>
+            )}
           </NavLink>
+        ))}
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === '/'}
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-300 ${
-                      isActive
-                        ? 'text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/20 shadow-[0_0_15px_rgba(0,217,255,0.1)]'
-                        : 'text-dark-200 hover:text-white hover:bg-white/5'
-                    }`
-                  }
-                >
-                  <Icon size={14} />
-                  {item.label}
-                </NavLink>
-              );
-            })}
-          </div>
+        {/* Sign Out */}
+        <button onClick={handleLogout} style={{
+          display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 50,
+          fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+          background: 'rgba(220,38,38,0.06)', color: '#dc2626', transition: 'all 0.2s', marginLeft: 4,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; }}>
+          <LogOut size={12} /> SIGN OUT
+        </button>
 
-          {/* Right side */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neon-green/5 border border-neon-green/20">
-              <div className="status-dot" />
-              <span className="text-[10px] font-medium text-neon-green">AI Online</span>
-            </div>
-            
-            <NavLink
-              to="/login"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-dark-200 hover:text-neon-cyan hover:bg-neon-cyan/5 border border-transparent hover:border-neon-cyan/20 transition-all"
-            >
-              <LogIn size={14} />
-              <span className="hidden sm:inline">Logare</span>
-            </NavLink>
+      </nav>
 
-            {/* Mobile toggle */}
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-dark-200"
-            >
-              {mobileOpen ? <X size={18} /> : <Menu size={18} />}
-            </button>
-          </div>
+      {/* Mobile */}
+      <div className="md:hidden" style={{ position: 'fixed', top: 12, left: 12, right: 12, zIndex: 100 }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          height: 48, padding: '0 16px', borderRadius: 50,
+          background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(30px)',
+          border: '1px solid rgba(255,255,255,0.7)', boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+        }}>
+          <NavLink to="/home" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#4dd0c8', fontFamily: "'Georgia',serif" }}>H</span>
+            <span style={{ fontSize: 9, fontWeight: 600, color: '#999', lineHeight: 1.2 }}>HOME<br/>MGMT</span>
+          </NavLink>
+          <button onClick={() => setMobileOpen(!mobileOpen)} style={{
+            width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'none', border: 'none', cursor: 'pointer', color: '#888',
+          }}>
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {mobileOpen && (
-        <div className="md:hidden glass-strong border-t border-[rgba(0,217,255,0.1)] animate-slide-down">
-          <div className="px-4 py-4 space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === '/'}
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${
-                      isActive
-                        ? 'text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/20'
-                        : 'text-dark-200 hover:text-white hover:bg-white/5'
-                    }`
-                  }
-                >
-                  <Icon size={18} />
-                  {item.label}
+        <>
+          <div className="sidebar-overlay md:hidden" onClick={() => setMobileOpen(false)} />
+          <div className="md:hidden" style={{
+            position: 'fixed', top: 70, left: 16, right: 16, zIndex: 95,
+            background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(40px)',
+            border: '1px solid rgba(255,255,255,0.7)', borderRadius: 20,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.1)', padding: 16,
+          }}>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {navItems.map(item => (
+                <NavLink key={item.to} to={item.to} onClick={() => setMobileOpen(false)} style={{ textDecoration: 'none' }}>
+                  {({ isActive }) => (
+                    <span style={{
+                      display: 'block', padding: '12px 16px', borderRadius: 12, fontSize: 13, fontWeight: 600,
+                      letterSpacing: '0.05em', transition: 'all 0.2s',
+                      background: isActive ? 'rgba(77,208,200,0.1)' : 'transparent',
+                      color: isActive ? '#0d9488' : '#888',
+                    }}>{item.label}</span>
+                  )}
                 </NavLink>
-              );
-            })}
+              ))}
+              <hr style={{ border: 'none', borderTop: '1px solid rgba(0,0,0,0.06)', margin: '4px 0' }} />
+              <button onClick={handleLogout} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderRadius: 12,
+                fontSize: 13, fontWeight: 500, color: '#dc2626', background: 'none', border: 'none',
+                cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+              }}>
+                <LogOut size={14} /> Deconectare
+              </button>
+            </nav>
           </div>
-        </div>
+        </>
       )}
-    </nav>
+    </>
   );
 }

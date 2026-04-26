@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -20,9 +21,28 @@ const userSchema = new mongoose.Schema({
     minlength: [6, 'Parola trebuie să aibă cel puțin 6 caractere'],
   },
   preferences: {
-    dietaryRestrictions: [String], // ex: ['vegetarian', 'fara-gluten']
-    allergies: [String],          // ex: ['lactoza', 'arahide']
+    dietaryRestrictions: [String],
+    allergies: [String],
     familySize: { type: Number, default: 1 },
+  },
+  subscription: {
+    plan: {
+      type: String,
+      enum: ['free', 'smart_saver', 'family_cfo', 'enterprise'],
+      default: 'free',
+    },
+    status: {
+      type: String,
+      enum: ['trial', 'active', 'expired', 'pending'],
+      default: 'trial',
+    },
+    trialEndsAt: {
+      type: Date,
+      default: () => new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // +3 zile
+    },
+    subscribedAt: { type: Date, default: null },
+    expiresAt: { type: Date, default: null },
+    seats: { type: Number, default: 1 }, // pentru Enterprise
   },
   createdAt: {
     type: Date,
@@ -32,6 +52,31 @@ const userSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-userSchema.index({ email: 1 });
+// Hash password before save
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Compare password method
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Check if trial is active
+userSchema.methods.isTrialActive = function () {
+  return this.subscription.status === 'trial' && this.subscription.trialEndsAt > new Date();
+};
+
+// Check if subscription is valid
+userSchema.methods.hasActiveSubscription = function () {
+  if (this.isTrialActive()) return true;
+  if (this.subscription.status === 'active') {
+    if (!this.subscription.expiresAt) return true;
+    return this.subscription.expiresAt > new Date();
+  }
+  return false;
+};
 
 module.exports = mongoose.model('User', userSchema);

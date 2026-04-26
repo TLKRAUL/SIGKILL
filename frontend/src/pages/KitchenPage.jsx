@@ -1,262 +1,390 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  ChefHat, Apple, Beef, Milk, Cookie, Wine, Leaf,
-  Thermometer, Power, AlertTriangle, Clock, Plus,
-  Sparkles, Brain, BarChart3, UtensilsCrossed,
-  Egg, Wheat, ShieldAlert, ScanLine, RefreshCw
+  Plus, Search, RefreshCw, X, Clock, Sparkles, Brain, Trash2, CalendarDays, Check, ChefHat, Flame, Users, Lightbulb
 } from 'lucide-react';
-import { getPantryItems, getRecipes } from '../api/apiClient';
+import { getPantryItems, addItem, deleteItem, updateItem, getRecipes, useRecipe } from '../api/apiClient';
+
+const categories = ['Toate', 'Lactate', 'Fructe', 'Legume', 'Carne', 'Panificație', 'Băuturi', 'Conserve', 'Condimente', 'Dulciuri', 'Altele'];
+const units = ['buc', 'kg', 'g', 'L', 'ml'];
 
 const mealTypes = [
-  { label: 'Mic Dejun', icon: Egg, active: false },
-  { label: 'Prânz', icon: UtensilsCrossed, active: true },
-  { label: 'Cină', icon: ChefHat, active: false },
+  { label: 'Mic Dejun', emoji: '🌅' },
+  { label: 'Prânz', emoji: '🍽️' },
+  { label: 'Cină', emoji: '🌙' },
 ];
 
 const dietOptions = [
-  { label: 'Vegan', active: false, icon: Leaf },
-  { label: 'Vegetarian', active: true, icon: Apple },
-  { label: 'Fără Lactoză', active: false, icon: Milk },
-  { label: 'Fără Gluten', active: false, icon: Wheat },
-  { label: 'Alergeni', active: false, icon: ShieldAlert },
+  { label: 'Vegan', emoji: '🌱' },
+  { label: 'Vegetarian', emoji: '🥬' },
+  { label: 'Fără Lactoză', emoji: '🥛' },
+  { label: 'Fără Gluten', emoji: '🌾' },
+  { label: 'Alergeni', emoji: '⚠️' },
 ];
 
 const wasteData = [
-  { day: 'Lun', value: 2 }, { day: 'Mar', value: 5 }, { day: 'Mie', value: 1 },
-  { day: 'Joi', value: 3 }, { day: 'Vin', value: 7 }, { day: 'Sâm', value: 4 }, { day: 'Dum', value: 2 },
+  { day: 'L', v: 0 }, { day: 'M', v: 0 }, { day: 'Mi', v: 0 },
+  { day: 'J', v: 0 }, { day: 'V', v: 0 }, { day: 'S', v: 0 }, { day: 'D', v: 0 },
 ];
 
 export default function KitchenPage() {
-  const [pantryItems, setPantryItems] = useState([]);
-  const [recipe, setRecipe] = useState(null);
+  const [items, setItems] = useState([]);
+  const [recipe, setRecipe] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sigkill_recipe')); } catch { return null; }
+  });
+  const [allRecipes, setAllRecipes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sigkill_all_recipes')) || []; } catch { return []; }
+  });
   const [loadingRecipe, setLoadingRecipe] = useState(false);
+  const [showRecipeModal, setShowRecipeModal] = useState(false);
   const [activeMeal, setActiveMeal] = useState(1);
-  const [diets, setDiets] = useState(dietOptions);
-  const maxWaste = Math.max(...wasteData.map(w => w.value));
+  const [activeDiets, setActiveDiets] = useState([]);
+  const [search, setSearch] = useState('');
+  const [filterCat, setFilterCat] = useState('Toate');
+  const [showAdd, setShowAdd] = useState(false);
+  const [newItem, setNewItem] = useState({ name: '', category: 'Altele', quantity: 1, unit: 'buc', expiryDate: '' });
+  const [adding, setAdding] = useState(false);
+  const [usingRecipe, setUsingRecipe] = useState(false);
+  const [recipeMsg, setRecipeMsg] = useState(null);
+  const maxW = Math.max(...wasteData.map(w => w.v));
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await getPantryItems();
-        if (data && data.length > 0) setPantryItems(data);
-      } catch {}
-    };
-    load();
-  }, []);
+  useEffect(() => { loadItems(); if (!recipe) loadRecipe(); }, []);
+
+  const loadItems = async () => {
+    try {
+      const data = await getPantryItems();
+      if (data) setItems(data);
+    } catch {}
+  };
 
   const loadRecipe = async () => {
     setLoadingRecipe(true);
     try {
       const data = await getRecipes();
-      if (Array.isArray(data) && data.length > 0) setRecipe(data[0]);
+      if (Array.isArray(data) && data.length > 0) {
+        setRecipe(data[0]);
+        setAllRecipes(data);
+        localStorage.setItem('sigkill_recipe', JSON.stringify(data[0]));
+        localStorage.setItem('sigkill_all_recipes', JSON.stringify(data));
+      }
     } catch {}
     setLoadingRecipe(false);
   };
 
-  useEffect(() => { loadRecipe(); }, []);
-
-  const toggleDiet = (idx) => {
-    setDiets(prev => prev.map((d, i) => i === idx ? { ...d, active: !d.active } : d));
+  const switchRecipe = (r) => {
+    setRecipe(r);
+    localStorage.setItem('sigkill_recipe', JSON.stringify(r));
+    setRecipeMsg(null);
   };
 
-  const getExpiryDays = (date) => {
-    if (!date) return null;
-    return Math.ceil((new Date(date) - new Date()) / 86400000);
+  const handleAddItem = async (e) => {
+    e.preventDefault();
+    if (!newItem.name.trim()) return;
+    setAdding(true);
+    try {
+      const saved = await addItem({
+        ...newItem,
+        expiryDate: newItem.expiryDate || null,
+      });
+      setItems(prev => [saved, ...prev]);
+      setNewItem({ name: '', category: 'Altele', quantity: 1, unit: 'buc', expiryDate: '' });
+      setShowAdd(false);
+    } catch {}
+    setAdding(false);
   };
 
-  const getExpiryColor = (days) => {
-    if (days === null) return 'text-dark-400';
-    if (days < 0) return 'text-neon-pink';
-    if (days <= 3) return 'text-neon-orange';
-    if (days <= 7) return 'text-neon-yellow';
-    return 'text-neon-green';
+  const handleDelete = async (id) => {
+    try {
+      await deleteItem(id);
+      setItems(prev => prev.filter(i => (i._id || i.id) !== id));
+    } catch {}
   };
+
+  const [editingExpiry, setEditingExpiry] = useState(null);
+  const [editDate, setEditDate] = useState('');
+
+  const handleUpdateExpiry = async (id) => {
+    if (!editDate) return;
+    try {
+      const updated = await updateItem(id, { expiryDate: editDate });
+      setItems(prev => prev.map(i => (i._id || i.id) === id ? { ...i, expiryDate: editDate } : i));
+    } catch {}
+    setEditingExpiry(null);
+    setEditDate('');
+  };
+
+  const getDays = (d) => {
+    if (!d) return null;
+    return Math.ceil((new Date(d) - new Date()) / 86400000);
+  };
+
+  const filtered = items.filter(i => {
+    if (search && !i.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterCat !== 'Toate' && i.category !== filterCat) return false;
+    return true;
+  });
 
   return (
-    <div className="relative z-10 max-w-7xl mx-auto px-6 pb-6 pt-24 page-enter" id="kitchen-page">
+    <>
+    <div style={{ fontFamily: "'Inter',-apple-system,sans-serif", position: 'relative', overflow: 'hidden' }} id="kitchen-page">
+
+      {/* Orbs */}
+      <div style={{ position:'absolute', width:450, height:450, borderRadius:'50%', background:'radial-gradient(circle,rgba(77,208,200,0.1) 0%,transparent 70%)', top:'-10%', right:'-5%', animation:'kitchenFloat1 10s ease-in-out infinite', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', width:350, height:350, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.06) 0%,transparent 70%)', bottom:'5%', left:'-5%', animation:'kitchenFloat2 12s ease-in-out infinite', pointerEvents:'none' }} />
+
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-2">
-          <ChefHat size={14} className="text-neon-cyan" />
-          <span className="text-[10px] font-hud text-neon-cyan/60 tracking-[0.2em] uppercase">Panou Bucătărie AI</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, position: 'relative', zIndex: 2, animation: 'kitFadeUp 0.7s cubic-bezier(.22,1,.36,1) both' }}>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#0d9488', marginBottom: 8 }}>🍳 Bucătărie & Rețete</p>
+          <h1 style={{ fontSize: 42, fontWeight: 800, color: '#1a1a1a', lineHeight: 1.1, letterSpacing: '-0.03em' }}>Ce ai prin frigider?</h1>
         </div>
-        <h1 className="text-3xl font-hud font-bold text-white tracking-wider">
-          BUCĂTĂRIE <span className="gradient-text">INTELIGENTĂ</span>
-        </h1>
+        <button onClick={() => setShowAdd(true)} id="add-product-btn" style={{
+          padding: '10px 22px', borderRadius: 50, fontSize: 13, fontWeight: 700,
+          background: '#1a1a1a', color: 'white', border: 'none', cursor: 'pointer',
+          fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.15)', transition: 'all 0.25s',
+        }}>
+          <Plus size={14} /> Adaugă produs
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT — Inventar */}
-        <div className="lg:col-span-3 space-y-4">
-          <div className="hud-panel p-5 animate-scale-in stagger-1">
-            <h3 className="text-[10px] font-hud text-neon-cyan/60 tracking-wider uppercase mb-4 flex items-center gap-2">
-              <Apple size={14} />
-              Inventar Alimentar
-            </h3>
-            <div className="space-y-2 max-h-72 overflow-y-auto">
-              {(pantryItems.length > 0 ? pantryItems : [
-                { name: 'Mere', quantity: 8, unit: 'buc', expiryDate: new Date(Date.now() + 5*86400000).toISOString(), category: 'Fructe' },
-                { name: 'Lapte', quantity: 1, unit: 'L', expiryDate: new Date(Date.now() + 2*86400000).toISOString(), category: 'Lactate' },
-                { name: 'Ouă', quantity: 12, unit: 'buc', expiryDate: new Date(Date.now() + 1*86400000).toISOString(), category: 'Altele' },
-                { name: 'Brânză', quantity: 500, unit: 'g', expiryDate: new Date(Date.now() + 4*86400000).toISOString(), category: 'Lactate' },
-              ]).slice(0, 8).map((item, i) => {
-                const days = getExpiryDays(item.expiryDate);
+      {/* Add Product Modal */}
+      {showAdd && (
+        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold text-text-primary">Adaugă produs nou</h3>
+              <button onClick={() => setShowAdd(false)} className="btn btn-ghost !p-2"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAddItem} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">Nume produs *</label>
+                <input value={newItem.name} onChange={e => setNewItem(p => ({...p, name: e.target.value}))}
+                  placeholder="ex: Lapte Zuzu 1L" className="input" required id="add-name" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">Categorie</label>
+                  <select value={newItem.category} onChange={e => setNewItem(p => ({...p, category: e.target.value}))}
+                    className="input" id="add-category">
+                    {categories.filter(c => c !== 'Toate').map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">Unitate</label>
+                  <select value={newItem.unit} onChange={e => setNewItem(p => ({...p, unit: e.target.value}))}
+                    className="input" id="add-unit">
+                    {units.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">Cantitate</label>
+                  <input type="number" min="0" step="any" value={newItem.quantity}
+                    onChange={e => setNewItem(p => ({...p, quantity: Number(e.target.value)}))}
+                    className="input" id="add-quantity" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">📅 Data expirare</label>
+                  <input type="date" value={newItem.expiryDate}
+                    onChange={e => setNewItem(p => ({...p, expiryDate: e.target.value}))}
+                    className="input" id="add-expiry" />
+                </div>
+              </div>
+              <button type="submit" disabled={adding} className="btn btn-primary w-full btn-lg" id="add-submit">
+                {adding ? <RefreshCw size={16} className="animate-spin" /> : <>Adaugă în cămară</>}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '4fr 3fr 5fr', gap: 16, position: 'relative', zIndex: 2 }}>
+        {/* Inventar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(30px) saturate(140%)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 24, boxShadow: '0 4px 24px rgba(0,0,0,0.04)', padding: '24px', animation: 'kitFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.1s both' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1a1a1a', letterSpacing: '-0.01em' }}>📦 Cămară ({filtered.length})</h3>
+            </div>
+            <div className="relative mb-3">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <input type="text" placeholder="Caută..." value={search}
+                onChange={e => setSearch(e.target.value)} className="input text-xs !pl-9 !py-2" />
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+              {['Toate', 'Lactate', 'Fructe', 'Carne', 'Legume'].map(c => (
+                <button key={c} onClick={() => setFilterCat(c)}
+                  style={{
+                    fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 50,
+                    border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
+                    background: filterCat === c ? 'rgba(77,208,200,0.15)' : 'rgba(0,0,0,0.03)',
+                    color: filterCat === c ? '#0d9488' : '#888',
+                  }}>{c}</button>
+              ))}
+            </div>
+            <div className="space-y-1.5 max-h-[380px] overflow-y-auto">
+              {filtered.slice(0, 15).map((item, i) => {
+                const days = getDays(item.expiryDate);
                 return (
-                  <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[rgba(0,217,255,0.03)] border border-[rgba(0,217,255,0.08)] hover:border-[rgba(0,217,255,0.2)] transition-all">
-                    <div>
-                      <p className="text-xs text-white font-medium">{item.name}</p>
-                      <p className="text-[10px] text-dark-400">{item.quantity} {item.unit}</p>
+                  <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-bg-surface border border-border hover:border-border-hover transition-all group">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-text-primary truncate">{item.name}</p>
+                      <p className="text-[10px] text-text-muted">{item.quantity} {item.unit} · {item.category}</p>
+                      {editingExpiry === (item._id || item.id) && (
+                        <div className="flex items-center gap-1.5 mt-1.5 animate-fade-in">
+                          <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+                            className="text-[10px] px-2 py-1 rounded-md border border-border bg-bg-base text-text-primary outline-none focus:border-accent-solid/40 w-28" />
+                          <button onClick={() => handleUpdateExpiry(item._id || item.id)}
+                            className="w-5 h-5 rounded-md bg-success-muted flex items-center justify-center text-success"><Check size={10} /></button>
+                          <button onClick={() => setEditingExpiry(null)}
+                            className="w-5 h-5 rounded-md bg-danger-muted flex items-center justify-center text-danger"><X size={10} /></button>
+                        </div>
+                      )}
                     </div>
-                    <span className={`text-[10px] font-mono ${getExpiryColor(days)}`}>
-                      {days !== null ? (days < 0 ? 'EXPIRAT' : `${days}z`) : '—'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`badge ${days === null ? 'badge-neutral' : days < 0 ? 'badge-danger' : days <= 3 ? 'badge-warning' : days <= 7 ? 'badge-info' : 'badge-success'}`}>
+                        {days !== null ? (days < 0 ? 'expirat' : `${days}z`) : '—'}
+                      </span>
+                      <button onClick={() => { setEditingExpiry(item._id || item.id); setEditDate(item.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : ''); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-accent text-text-muted hover:text-accent-solid" title="Schimbă expirarea">
+                        <CalendarDays size={12} />
+                      </button>
+                      <button onClick={() => handleDelete(item._id || item.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-danger-muted text-text-muted hover:text-danger">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
-            </div>
-            <button className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs text-neon-cyan bg-neon-cyan/5 border border-neon-cyan/15 hover:bg-neon-cyan/10 transition-all">
-              <Plus size={14} /> Adaugă / Scanare
-            </button>
-          </div>
-        </div>
-
-        {/* CENTER — Preferințe + Diete */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Meal Types */}
-          <div className="hud-panel p-5 animate-scale-in stagger-2">
-            <h3 className="text-[10px] font-hud text-neon-cyan/60 tracking-wider uppercase mb-4 text-center">
-              Preferințe Dietetice & Tip Masă
-            </h3>
-            <div className="grid grid-cols-3 gap-2 mb-5">
-              {mealTypes.map((meal, i) => {
-                const Icon = meal.icon;
-                const isActive = i === activeMeal;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setActiveMeal(i)}
-                    className={`flex flex-col items-center gap-2 py-3 rounded-xl text-xs font-medium transition-all ${
-                      isActive
-                        ? 'bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/30 shadow-[0_0_15px_rgba(0,217,255,0.1)]'
-                        : 'bg-[rgba(0,217,255,0.03)] text-dark-300 border border-transparent hover:border-[rgba(0,217,255,0.1)]'
-                    }`}
-                  >
-                    <Icon size={20} />
-                    {meal.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <h4 className="text-[10px] font-hud text-neon-cyan/60 tracking-wider uppercase mb-3 text-center">
-              Diete & Alergeni
-            </h4>
-            <div className="space-y-2">
-              {diets.map((diet, i) => {
-                const Icon = diet.icon;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => toggleDiet(i)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs transition-all ${
-                      diet.active
-                        ? 'bg-neon-green/10 text-neon-green border border-neon-green/20'
-                        : 'bg-[rgba(0,217,255,0.02)] text-dark-300 border border-transparent hover:border-[rgba(0,217,255,0.1)]'
-                    }`}
-                  >
-                    <Icon size={16} />
-                    <span className="flex-1 text-left">{diet.label}</span>
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                      diet.active ? 'border-neon-green bg-neon-green/30' : 'border-dark-400'
-                    }`}>
-                      {diet.active && <div className="w-1.5 h-1.5 rounded-full bg-neon-green" />}
-                    </div>
-                  </button>
-                );
-              })}
+              {filtered.length === 0 && <p className="text-sm text-text-muted text-center py-6">Niciun produs găsit</p>}
             </div>
           </div>
         </div>
 
-        {/* RIGHT — Recipe + Waste */}
-        <div className="lg:col-span-5 space-y-4">
-          {/* Recipe Suggestion */}
-          <div className="hud-panel p-5 animate-scale-in stagger-3">
+        {/* Preferinte */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(30px) saturate(140%)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 24, boxShadow: '0 4px 24px rgba(0,0,0,0.04)', padding: '24px', animation: 'kitFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.15s both' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1a1a1a', marginBottom: 16, textAlign: 'center', letterSpacing: '-0.01em' }}>🍽️ Tip masă</h3>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {mealTypes.map((m, i) => (
+                <button key={i} onClick={() => setActiveMeal(i)}
+                  className={`toggle-btn flex-col gap-1 !py-3 justify-center ${i === activeMeal ? 'active' : ''}`}>
+                  <span className="text-lg">{m.emoji}</span>
+                  <span className="text-[10px]">{m.label}</span>
+                </button>
+              ))}
+            </div>
+            <hr className="divider mb-4" />
+            <h4 className="section-label mb-2 text-center">diete</h4>
+            <div className="space-y-1.5">
+              {dietOptions.map((d, i) => (
+                <button key={i} onClick={() => setActiveDiets(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i])}
+                  className={`toggle-btn w-full justify-start ${activeDiets.includes(i) ? 'active' : ''}`}>
+                  <span>{d.emoji}</span>
+                  <span className="flex-1 text-left text-xs">{d.label}</span>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${activeDiets.includes(i) ? 'border-accent-solid bg-accent-solid' : 'border-text-muted'}`}>
+                    {activeDiets.includes(i) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Reteta + Risipa */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(30px) saturate(140%)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 24, boxShadow: '0 4px 24px rgba(0,0,0,0.04)', padding: '28px', animation: 'kitFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.2s both', flex: 1 }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[10px] font-hud text-neon-cyan/60 tracking-wider uppercase flex items-center gap-2">
-                <Sparkles size={14} />
-                Rețetă Recomandată
-              </h3>
-              <button
-                onClick={loadRecipe}
-                disabled={loadingRecipe}
-                className="flex items-center gap-1 text-[10px] text-neon-cyan hover:text-white transition-colors"
-              >
-                <RefreshCw size={12} className={loadingRecipe ? 'animate-spin' : ''} />
-                Nouă
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1a1a1a', letterSpacing: '-0.01em' }}>✨ Rețetă sugerată</h3>
+              <button onClick={loadRecipe} disabled={loadingRecipe} className="btn btn-ghost btn-sm">
+                <RefreshCw size={12} className={loadingRecipe ? 'animate-spin' : ''} /> generează noi
               </button>
             </div>
-
+            {/* Recipe tabs */}
+            {allRecipes.length > 1 && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                {allRecipes.map((r, i) => (
+                  <button key={i} onClick={() => switchRecipe(r)}
+                    style={{
+                      padding: '6px 14px', borderRadius: 50, fontSize: 11, fontWeight: 600,
+                      border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
+                      background: recipe?.name === r.name ? '#1a1a1a' : 'rgba(0,0,0,0.03)',
+                      color: recipe?.name === r.name ? 'white' : '#888',
+                    }}>{i+1}. {r.name?.split(' ').slice(0,2).join(' ')}</button>
+                ))}
+              </div>
+            )}
             {recipe ? (
-              <div className="space-y-3">
-                <h4 className="text-lg font-bold text-white">{recipe.name}</h4>
-                <p className="text-xs text-dark-300">{recipe.description}</p>
-                
-                <div className="flex items-center gap-4 text-xs text-dark-400">
-                  <span className="flex items-center gap-1"><Clock size={12} /> {recipe.time} min</span>
-                  <span>👨‍🍳 {recipe.difficulty}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <h4 style={{ fontSize: 20, fontWeight: 800, color: '#1a1a1a', letterSpacing: '-0.02em' }}>{recipe.name}</h4>
+                <p style={{ fontSize: 13, color: '#666', lineHeight: 1.5 }}>{recipe.description}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  {[
+                    { icon: <Clock size={12} />, text: `${recipe.time} min` },
+                    { icon: null, text: `👨‍🍳 ${recipe.difficulty}` },
+                    recipe.servings && { icon: <Users size={12} />, text: `${recipe.servings} porții` },
+                    recipe.calories && { icon: <Flame size={12} />, text: `${recipe.calories} kcal` },
+                  ].filter(Boolean).map((item, i) => (
+                    <span key={i} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                      borderRadius: 50, background: 'rgba(0,0,0,0.03)', fontSize: 11, fontWeight: 500, color: '#777',
+                    }}>{item.icon}{item.text}</span>
+                  ))}
                 </div>
-
-                {recipe.steps && (
-                  <div className="space-y-1.5 mt-3">
-                    <p className="text-[10px] font-hud text-neon-cyan/50 tracking-wider uppercase">Pași:</p>
-                    {recipe.steps.slice(0, 4).map((step, i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs text-dark-200">
-                        <span className="text-neon-cyan font-mono text-[10px] mt-0.5">{i + 1}.</span>
-                        <span>{step}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
+                {/* Ingredients */}
                 {recipe.ingredients && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {recipe.ingredients.slice(0, 6).map((ing, i) => (
-                      <span key={i} className="px-2 py-1 rounded-lg text-[10px] bg-neon-cyan/5 border border-neon-cyan/10 text-dark-300">
-                        {ing}
-                      </span>
-                    ))}
+                  <div style={{ marginTop: 4 }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#999', marginBottom: 6 }}>ingrediente</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                      {recipe.ingredients.slice(0, 6).map((ing, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#555', padding: '5px 8px', borderRadius: 8, background: 'rgba(0,0,0,0.02)' }}>
+                          <span style={{ color: '#0d9488', fontWeight: 700 }}>•</span>
+                          {typeof ing === 'object' 
+                            ? <span><strong>{ing.quantity} {ing.unit}</strong> {ing.name}</span>
+                            : <span>{ing}</span>
+                          }
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
-
-                <button className="mt-3 w-full btn-primary text-xs py-2.5 flex items-center justify-center gap-2">
-                  <span><Brain size={14} /> Generează Rețete Noi</span>
-                </button>
+                <div style={{ marginTop: 12 }}>
+                  <button onClick={() => setShowRecipeModal(true)}
+                    style={{
+                      width: '100%', padding: '12px 0', borderRadius: 50, border: 'none',
+                      background: '#1a1a1a', color: 'white', fontSize: 13, fontWeight: 700,
+                      cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', gap: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                      transition: 'all 0.2s',
+                    }}>
+                    <ChefHat size={14} /> Vezi rețeta completă
+                  </button>
+                </div>
+                {recipeMsg && (
+                  <div style={{ fontSize: 12, marginTop: 4, padding: '8px 12px', borderRadius: 10, background: recipeMsg.type === 'success' ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)', color: recipeMsg.type === 'success' ? '#16a34a' : '#dc2626' }}>
+                    {recipeMsg.text}
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="text-center py-8 text-dark-400 text-xs">
-                {loadingRecipe ? 'Se generează rețetă cu AI...' : 'Click pe "Nouă" pentru o rețetă'}
+              <div style={{ textAlign: 'center', padding: '32px 0', color: '#999', fontSize: 13 }}>
+                {loadingRecipe ? <><RefreshCw size={14} className="animate-spin" style={{ display: 'inline', marginRight: 4 }} /> AI generează rețete...</> : 'Apasă „generează noi" pentru rețete'}
               </div>
             )}
           </div>
 
-          {/* Waste Report */}
-          <div className="hud-panel p-5 animate-scale-in stagger-4">
-            <h3 className="text-[10px] font-hud text-neon-cyan/60 tracking-wider uppercase mb-4 flex items-center gap-2">
-              <BarChart3 size={14} />
-              Raport Risipă Săptămânală
-            </h3>
+          <div style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(30px) saturate(140%)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 24, boxShadow: '0 4px 24px rgba(0,0,0,0.04)', padding: '24px', animation: 'kitFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.25s both' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1a1a1a', marginBottom: 12, letterSpacing: '-0.01em' }}>📊 Risipă săptămânală</h3>
             <div className="flex items-end gap-2 h-24">
               {wasteData.map((w, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    className="w-full rounded-t-md transition-all duration-700"
-                    style={{
-                      height: `${(w.value / maxWaste) * 100}%`,
-                      background: w.value > 5 ? 'linear-gradient(to top, rgba(247,37,133,0.4), rgba(255,107,53,0.6))' : 'linear-gradient(to top, rgba(0,217,255,0.2), rgba(0,245,160,0.4))',
-                    }}
-                  />
-                  <span className="text-[8px] text-dark-500">{w.day}</span>
+                  <div className="w-full rounded-t-md transition-all" style={{
+                    height: `${(w.v / maxW) * 100}%`,
+                    background: w.v > 5 ? 'rgba(220,38,38,0.15)' : 'rgba(37,99,235,0.12)',
+                  }} />
+                  <span className="text-[9px] text-text-muted">{w.day}</span>
                 </div>
               ))}
             </div>
@@ -264,47 +392,134 @@ export default function KitchenPage() {
         </div>
       </div>
 
-      {/* Bottom — Smart Appliances */}
-      <div className="mt-6 hud-panel p-5 animate-scale-in stagger-5">
-        <h3 className="text-[10px] font-hud text-neon-cyan/60 tracking-wider uppercase mb-4 flex items-center gap-2">
-          <Thermometer size={14} />
-          Monitorizare Electrocasnice & Rapoarte
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="flex items-center gap-4 px-4 py-3 rounded-xl bg-[rgba(0,217,255,0.03)] border border-[rgba(0,217,255,0.08)]">
-            <Thermometer size={20} className="text-neon-blue" />
-            <div>
-              <p className="text-xs text-dark-300">Frigider T°</p>
-              <p className="text-lg font-hud font-bold text-white">3°C</p>
-            </div>
-            <div className="ml-auto w-16 h-8 rounded bg-dark-700/50 flex items-center justify-center">
-              <div className="w-12 h-1 bg-gradient-to-r from-neon-blue to-neon-cyan rounded-full animate-pulse-soft" />
+      <style>{`
+        @keyframes kitFadeUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes kitchenFloat1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-12px,10px)} }
+        @keyframes kitchenFloat2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(10px,-12px)} }
+      `}</style>
+
+    </div>
+
+    {showRecipeModal && recipe && createPortal(
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+        {/* Overlay */}
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+          onClick={() => setShowRecipeModal(false)} />
+        
+        {/* Modal Card */}
+        <div style={{
+          position: 'relative', zIndex: 1, width: '100%', maxWidth: 640, maxHeight: '85vh',
+          background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(40px) saturate(180%)',
+          borderRadius: 24, display: 'flex', flexDirection: 'column',
+          boxShadow: '0 24px 48px rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.7)',
+          animation: 'slideUp 0.3s ease', overflow: 'hidden',
+        }} onClick={e => e.stopPropagation()}>
+          
+          {/* Header */}
+          <div style={{ padding: '28px 32px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1a1a1a', margin: 0 }}>{recipe.name}</h2>
+                <p style={{ fontSize: 13, color: '#777', marginTop: 6 }}>{recipe.description}</p>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 12px', borderRadius: 50, fontSize: 11, fontWeight: 600, background: 'rgba(77,208,200,0.12)', color: '#0d9488' }}>
+                    <Clock size={10} /> {recipe.time} min
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 12px', borderRadius: 50, fontSize: 11, fontWeight: 600, background: 'rgba(77,208,200,0.12)', color: '#0d9488' }}>
+                    👨‍🍳 {recipe.difficulty}
+                  </span>
+                  {recipe.servings && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 500, background: 'rgba(249,115,22,0.08)', color: '#ea580c' }}><Users size={10} /> {recipe.servings} porții</span>}
+                  {recipe.calories && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 500, background: 'rgba(220,38,38,0.08)', color: '#dc2626' }}><Flame size={10} /> {recipe.calories} kcal</span>}
+                </div>
+              </div>
+              <button onClick={() => setShowRecipeModal(false)}
+                style={{ width: 36, height: 36, borderRadius: 50, border: '1px solid rgba(0,0,0,0.08)', background: 'rgba(0,0,0,0.03)', color: '#999', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <X size={16} />
+              </button>
             </div>
           </div>
           
-          <div className="flex items-center gap-4 px-4 py-3 rounded-xl bg-[rgba(0,217,255,0.03)] border border-[rgba(0,217,255,0.08)]">
-            <Thermometer size={20} className="text-neon-cyan" />
-            <div>
-              <p className="text-xs text-dark-300">Congelator T°</p>
-              <p className="text-lg font-hud font-bold text-white">-18°C</p>
+          {/* Scrollable Content */}
+          <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1, minHeight: 0 }}>
+            {/* Ingredients */}
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 14 }}>Ingrediente</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 24 }}>
+              {recipe.ingredients?.map((ing, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 14, background: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.06)', fontSize: 13 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#0d9488', flexShrink: 0 }} />
+                  {typeof ing === 'object' ? (
+                    <span style={{ color: '#555' }}><strong style={{ color: '#1a1a1a' }}>{ing.quantity} {ing.unit}</strong> {ing.name}</span>
+                  ) : (
+                    <span style={{ color: '#555' }}>{ing}</span>
+                  )}
+                </div>
+              ))}
             </div>
-            <div className="ml-auto w-16 h-8 rounded bg-dark-700/50 flex items-center justify-center">
-              <div className="w-12 h-1 bg-gradient-to-r from-neon-cyan to-neon-green rounded-full animate-pulse-soft" />
+
+            {/* Steps */}
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1a1a1a', marginBottom: 14 }}>Pași de preparare</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+              {recipe.steps?.map((s, i) => {
+                const step = typeof s === 'object' ? s : { instruction: s, time: null };
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 50, background: '#1a1a1a', color: 'white', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {step.step || i + 1}
+                    </div>
+                    <div style={{ flex: 1, paddingTop: 4 }}>
+                      <p style={{ fontSize: 14, color: '#555', lineHeight: 1.6, margin: 0 }}>{step.instruction || s}</p>
+                      {step.time && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, fontSize: 11, padding: '2px 8px', borderRadius: 50, background: 'rgba(77,208,200,0.1)', color: '#0d9488' }}><Clock size={9} /> {step.time} min</span>}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Tips */}
+            {recipe.tips && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '16px', borderRadius: 16, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.12)' }}>
+                <Lightbulb size={16} style={{ color: '#f59e0b', flexShrink: 0, marginTop: 2 }} />
+                <p style={{ fontSize: 13, color: '#555', margin: 0, lineHeight: 1.6 }}>{recipe.tips}</p>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-4 px-4 py-3 rounded-xl bg-[rgba(0,217,255,0.03)] border border-[rgba(0,217,255,0.08)]">
-            <Power size={20} className="text-dark-400" />
-            <div>
-              <p className="text-xs text-dark-300">Cuptor Status</p>
-              <p className="text-lg font-hud font-bold text-dark-400">Oprit</p>
-            </div>
-            <button className="ml-auto px-3 py-1.5 rounded-lg text-[10px] bg-dark-700 text-dark-300 border border-dark-500 hover:border-neon-green/30 hover:text-neon-green transition-all">
-              Oprit
+          {/* Footer */}
+          <div style={{ padding: '20px 32px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+            <button onClick={async () => {
+              if (!recipe.ingredients?.length) return;
+              setUsingRecipe(true); setRecipeMsg(null);
+              try {
+                const ingNames = recipe.ingredients.map(ing => typeof ing === 'object' ? `${ing.name} ${ing.quantity}${ing.unit}` : ing);
+                const result = await useRecipe(ingNames);
+                const updated = result.results?.filter(r => r.action !== 'not_found').length || 0;
+                setRecipeMsg({ type: 'success', text: `✅ ${updated} ingrediente scăzute din cămară!` });
+                loadItems();
+              } catch { setRecipeMsg({ type: 'error', text: '❌ Eroare la actualizare.' }); }
+              setUsingRecipe(false);
+            }} disabled={usingRecipe}
+              style={{
+                width: '100%', padding: '14px 0', borderRadius: 50, border: 'none', fontSize: 14, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer',
+                fontFamily: 'inherit',
+                background: usingRecipe ? 'rgba(0,0,0,0.04)' : '#1a1a1a',
+                color: usingRecipe ? '#999' : 'white',
+                boxShadow: usingRecipe ? 'none' : '0 4px 20px rgba(0,0,0,0.15)',
+                transition: 'all 0.2s',
+              }}>
+              {usingRecipe ? <><RefreshCw size={14} className="animate-spin" /> Se actualizează...</> : <><ChefHat size={15} /> Folosesc rețeta — scade ingredientele</>}
             </button>
+            {recipeMsg && (
+              <div style={{ fontSize: 12, marginTop: 8, padding: '8px 12px', borderRadius: 8, textAlign: 'center', fontWeight: 500, color: recipeMsg.type === 'success' ? '#16a34a' : '#ef4444', background: recipeMsg.type === 'success' ? '#f0fdf4' : '#fef2f2' }}>
+                {recipeMsg.text}
+              </div>
+            )}
           </div>
         </div>
-      </div>
-    </div>
+      </div>,
+      document.body
+    )}
+
+    </>
   );
 }

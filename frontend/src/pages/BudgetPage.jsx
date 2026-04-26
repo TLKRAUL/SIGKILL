@@ -1,195 +1,283 @@
-import { useState, useEffect } from 'react';
-import {
-  Wallet, TrendingUp, TrendingDown, DollarSign, PieChart,
-  Settings, Brain, ArrowUpRight, ArrowDownRight, Sparkles
-} from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { TrendingUp, TrendingDown, DollarSign, Settings, Sparkles, ArrowRight, Wallet } from 'lucide-react';
+import { getPantryItems, getBills } from '../api/apiClient';
 
-const spendingCategories = [
-  { name: 'Alimente', percent: 35, amount: 1575, color: '#00f5a0' },
-  { name: 'Facturi', percent: 25, amount: 1125, color: '#00d9ff' },
-  { name: 'Transport', percent: 15, amount: 675, color: '#6c5ce7' },
-  { name: 'Economii', percent: 15, amount: 675, color: '#ffd166' },
-  { name: 'Divertisment', percent: 10, amount: 450, color: '#f72585' },
-];
+const useInView = (threshold = 0.1) => {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVisible(true); }, { threshold });
+    obs.observe(el); return () => obs.disconnect();
+  }, [threshold]);
+  return [ref, visible];
+};
+
+const Donut = ({ percent, color, size = 160, strokeWidth = 12, label, value }) => {
+  const r = (size - strokeWidth) / 2;
+  const c = 2 * Math.PI * r;
+  const [ap, setAp] = useState(0);
+  useEffect(() => { const t = setTimeout(() => setAp(percent), 200); return () => clearTimeout(t); }, [percent]);
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
+        <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth={strokeWidth} />
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
+            strokeDasharray={`${(ap/100)*c} ${c}`} strokeLinecap="round"
+            style={{ transition: 'stroke-dasharray 1.4s cubic-bezier(.22,1,.36,1)' }} />
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a' }}>{value}</span>
+          <span style={{ fontSize: 11, color: '#999', marginTop: 2 }}>{label}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function BudgetPage() {
-  const [budget, setBudget] = useState(10000);
-  const [spent, setSpent] = useState(4500);
-  const [animPercent, setAnimPercent] = useState(0);
+  const [budget, setBudgetState] = useState(() => {
+    try { return Number(localStorage.getItem('sigkill_budget')) || 0; } catch { return 0; }
+  });
+  const [spent, setSpentState] = useState(() => {
+    try { return Number(localStorage.getItem('sigkill_spent')) || 0; } catch { return 0; }
+  });
+  const [categories, setCategories] = useState([
+    { name: 'Alimente', amount: 0, color: '#4dd0c8', emoji: '🛒' },
+    { name: 'Facturi', amount: 0, color: '#2563eb', emoji: '📄' },
+    { name: 'Recurente', amount: 0, color: '#8b5cf6', emoji: '🔄' },
+    { name: 'Economii', amount: 0, color: '#f59e0b', emoji: '💰' },
+    { name: 'Altele', amount: 0, color: '#dc2626', emoji: '🎬' },
+  ]);
+  const [catRef, catVisible] = useInView(0.05);
+  const [tipsRef, tipsVisible] = useInView(0.05);
 
+  const setBudget = (val) => { setBudgetState(val); localStorage.setItem('sigkill_budget', val); };
+  const setSpent = (val) => { setSpentState(val); localStorage.setItem('sigkill_spent', val); };
+
+  // Calculează categorii de cheltuieli din date reale
   useEffect(() => {
-    const target = Math.round((spent / budget) * 100);
-    let current = 0;
-    const interval = setInterval(() => {
-      current += 1;
-      setAnimPercent(current);
-      if (current >= target) clearInterval(interval);
-    }, 20);
-    return () => clearInterval(interval);
-  }, [spent, budget]);
+    const loadCategories = async () => {
+      try {
+        const [pantry, bills] = await Promise.all([
+          getPantryItems().catch(() => []),
+          getBills().catch(() => []),
+        ]);
+        const recurring = JSON.parse(localStorage.getItem('sigkill_recurring') || '[]');
+
+        const alimenteTotal = (pantry || []).reduce((s, p) => s + (p.price || 0), 0);
+        const facturiTotal = (bills || []).filter(b => b.status === 'paid').reduce((s, b) => s + (b.amount || 0), 0);
+        const recurenteTotal = recurring.reduce((s, r) => s + (r.amount || 0), 0);
+        const total = alimenteTotal + facturiTotal + recurenteTotal;
+
+        setCategories([
+          { name: 'Alimente', amount: Math.round(alimenteTotal * 100) / 100, color: '#4dd0c8', emoji: '🛒' },
+          { name: 'Facturi', amount: Math.round(facturiTotal * 100) / 100, color: '#2563eb', emoji: '📄' },
+          { name: 'Recurente', amount: Math.round(recurenteTotal * 100) / 100, color: '#8b5cf6', emoji: '🔄' },
+          { name: 'Economii', amount: 0, color: '#f59e0b', emoji: '💰' },
+          { name: 'Altele', amount: 0, color: '#dc2626', emoji: '🎬' },
+        ]);
+      } catch {}
+    };
+    loadCategories();
+  }, []);
 
   const remaining = budget - spent;
+  const percentUsed = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+  const totalCatAmount = categories.reduce((s, c) => s + c.amount, 0);
+
+  const glass = {
+    background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(30px) saturate(140%)',
+    border: '1px solid rgba(255,255,255,0.6)', borderRadius: 24,
+    boxShadow: '0 4px 24px rgba(0,0,0,0.04)',
+  };
+
+  const inputStyle = {
+    width: '100%', padding: '14px 16px', borderRadius: 14, fontSize: 14,
+    fontFamily: 'inherit', background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(0,0,0,0.08)',
+    outline: 'none', color: '#1a1a1a', transition: 'border-color 0.2s, box-shadow 0.2s',
+  };
 
   return (
-    <div className="relative z-10 max-w-6xl mx-auto px-6 pb-6 pt-24 page-enter" id="budget-page">
+    <div style={{ fontFamily: "'Inter',-apple-system,sans-serif", position: 'relative', overflow: 'hidden' }} id="budget-page">
+
+      {/* Orbs */}
+      <div style={{ position:'absolute', width:450, height:450, borderRadius:'50%', background:'radial-gradient(circle,rgba(37,99,235,0.08) 0%,transparent 70%)', top:'-8%', right:'-5%', animation:'budgetFloat1 10s ease-in-out infinite', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', width:350, height:350, borderRadius:'50%', background:'radial-gradient(circle,rgba(124,58,237,0.06) 0%,transparent 70%)', bottom:'5%', left:'-5%', animation:'budgetFloat2 12s ease-in-out infinite', pointerEvents:'none' }} />
+
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-2">
-          <Wallet size={14} className="text-neon-cyan" />
-          <span className="text-[10px] font-hud text-neon-cyan/60 tracking-[0.2em] uppercase">Gestionare Bani</span>
-        </div>
-        <h1 className="text-3xl font-hud font-bold text-white tracking-wider">
-          SITUAȚIA <span className="gradient-text">FINANCIARĂ</span>
+      <div style={{ position: 'relative', zIndex: 2, marginBottom: 28, animation: 'budgetFadeUp 0.7s cubic-bezier(.22,1,.36,1) both' }}>
+        <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#2563eb', marginBottom: 8 }}>
+          💰 Finanțe & Buget
+        </p>
+        <h1 style={{ fontSize: 42, fontWeight: 800, color: '#1a1a1a', lineHeight: 1.1, marginBottom: 8, letterSpacing: '-0.03em' }}>
+          Cum stai cu banii?
         </h1>
+        <p style={{ fontSize: 15, color: '#777' }}>
+          Monitorizează cheltuielile și optimizează-ți bugetul lunar
+        </p>
       </div>
 
-      {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="hud-panel p-6 hud-corners animate-scale-in stagger-1">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp size={16} className="text-neon-green" />
-            <span className="text-xs font-hud text-dark-300 tracking-wider uppercase">Venit Lunar</span>
-          </div>
-          <p className="text-3xl font-hud font-bold text-white">{budget.toLocaleString()}</p>
-          <p className="text-xs text-neon-green mt-1">RON</p>
-        </div>
-
-        <div className="hud-panel p-6 hud-corners animate-scale-in stagger-2">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingDown size={16} className="text-neon-pink" />
-            <span className="text-xs font-hud text-dark-300 tracking-wider uppercase">Cheltuieli</span>
-          </div>
-          <p className="text-3xl font-hud font-bold text-white">{spent.toLocaleString()}</p>
-          <p className="text-xs text-neon-pink mt-1">RON</p>
-        </div>
-
-        <div className="hud-panel p-6 hud-corners animate-scale-in stagger-3">
-          <div className="flex items-center gap-2 mb-3">
-            <DollarSign size={16} className="text-neon-cyan" />
-            <span className="text-xs font-hud text-dark-300 tracking-wider uppercase">Disponibil</span>
-          </div>
-          <p className="text-3xl font-hud font-bold text-neon-green">{remaining.toLocaleString()}</p>
-          <p className="text-xs text-dark-400 mt-1">RON rămas din buget</p>
-        </div>
+      {/* 3 stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
+        {[
+          { icon: TrendingUp, label: 'Venit lunar', value: `${budget.toLocaleString()} RON`, color: '#16a34a', delay: 0.1 },
+          { icon: TrendingDown, label: 'Cheltuieli', value: `${spent.toLocaleString()} RON`, color: '#dc2626', delay: 0.15 },
+          { icon: DollarSign, label: 'Disponibil', value: `${remaining.toLocaleString()} RON`, color: '#2563eb', delay: 0.2 },
+        ].map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <div key={i} style={{
+              ...glass, padding: '22px 24px', display: 'flex', alignItems: 'center', gap: 14,
+              animation: `budgetFadeUp 0.6s cubic-bezier(.22,1,.36,1) ${s.delay}s both`,
+              transition: 'transform 0.25s, box-shadow 0.25s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.08)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.04)'; }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: `${s.color}12`, border: `1px solid ${s.color}20`,
+              }}>
+                <Icon size={20} style={{ color: s.color }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 22, fontWeight: 800, color: s.color === '#dc2626' ? '#dc2626' : '#1a1a1a', margin: 0, lineHeight: 1 }}>{s.value}</p>
+                <p style={{ fontSize: 11, color: '#999', margin: 0, marginTop: 3 }}>{s.label}</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pie Chart (visual) */}
-        <div className="hud-panel p-6 animate-scale-in stagger-4">
-          <h3 className="text-sm font-hud text-neon-cyan tracking-wider uppercase mb-6 flex items-center gap-2">
-            <PieChart size={16} />
-            Distribuție Cheltuieli
-          </h3>
-          
-          {/* Circular progress */}
-          <div className="relative w-48 h-48 mx-auto mb-6">
-            <svg className="w-48 h-48 -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(0,217,255,0.1)" strokeWidth="6" />
-              <circle 
-                cx="50" cy="50" r="42" fill="none" 
-                stroke="url(#gradient)" strokeWidth="6" 
-                strokeLinecap="round"
-                strokeDasharray={`${animPercent * 2.64} ${264 - animPercent * 2.64}`}
-                className="transition-all duration-300"
-              />
+      {/* Main grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
+
+        {/* Big donut */}
+        <div style={{ ...glass, padding: '32px', animation: 'budgetFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.3s both', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1a1a1a', marginBottom: 20, letterSpacing: '-0.01em' }}>📊 Distribuție cheltuieli</h3>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Donut percent={percentUsed} color="url(#budget-gradient)" size={200} strokeWidth={14} label="consumat" value={`${percentUsed}%`} />
+            {/* Hidden SVG for gradient */}
+            <svg width={0} height={0} style={{ position: 'absolute' }}>
               <defs>
-                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#00f5a0" />
-                  <stop offset="100%" stopColor="#00d9ff" />
+                <linearGradient id="budget-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#2563eb" />
+                  <stop offset="100%" stopColor="#8b5cf6" />
                 </linearGradient>
               </defs>
             </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-hud font-bold text-white">{animPercent}%</span>
-              <span className="text-[10px] text-dark-400">consumat</span>
+          </div>
+          {/* Progress bar */}
+          <div style={{ marginTop: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#999', marginBottom: 6 }}>
+              <span>0 RON</span><span>{budget.toLocaleString()} RON</span>
+            </div>
+            <div style={{ height: 8, borderRadius: 8, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 8, transition: 'width 1s cubic-bezier(.22,1,.36,1)',
+                width: `${Math.min(percentUsed, 100)}%`,
+                background: percentUsed > 80 ? 'linear-gradient(90deg,#dc2626,#f59e0b)' : 'linear-gradient(90deg,#2563eb,#8b5cf6)',
+              }} />
             </div>
           </div>
+        </div>
 
-          {/* Legend */}
-          <div className="space-y-3">
-            {spendingCategories.map((cat, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
-                  <span className="text-xs text-dark-200">{cat.name}</span>
+        {/* Categories breakdown */}
+        <div ref={catRef} style={{ ...glass, padding: '32px', animation: 'budgetFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.35s both' }}>
+          <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1a1a1a', marginBottom: 20, letterSpacing: '-0.01em' }}>🏷️ Pe categorii</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {categories.map((cat, i) => {
+              const pct = totalCatAmount > 0 ? Math.round((cat.amount / totalCatAmount) * 100) : 0;
+              return (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 16,
+                background: 'rgba(0,0,0,0.02)', transition: 'all 0.3s',
+                opacity: catVisible ? 1 : 0, transform: catVisible ? 'translateX(0)' : 'translateX(-16px)',
+                transitionDelay: `${0.05 + i * 0.06}s`,
+              }}>
+                <span style={{ fontSize: 18 }}>{cat.emoji}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>{cat.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a' }}>{cat.amount.toLocaleString()} RON</span>
+                  </div>
+                  <div style={{ height: 5, borderRadius: 5, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', borderRadius: 5, background: cat.color,
+                      width: catVisible ? `${pct}%` : '0%',
+                      transition: `width 1s cubic-bezier(.22,1,.36,1) ${0.3 + i * 0.1}s`,
+                    }} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-dark-400">{cat.percent}%</span>
-                  <span className="text-xs font-mono text-white">{cat.amount} RON</span>
-                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: cat.color, minWidth: 36, textAlign: 'right' }}>{pct}%</span>
+              </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Config */}
+        <div style={{ ...glass, padding: '32px', animation: 'budgetFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.4s both' }}>
+          <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1a1a1a', marginBottom: 20, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Settings size={18} style={{ color: '#888' }} /> Configurare
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#888', marginBottom: 6 }}>Buget lunar (RON)</label>
+              <input type="number" value={budget} onChange={e => setBudget(Number(e.target.value) || 0)} style={inputStyle}
+                onFocus={e => { e.target.style.borderColor = 'rgba(37,99,235,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
+                onBlur={e => { e.target.style.borderColor = 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#888', marginBottom: 6 }}>Cheltuieli luna asta (RON)</label>
+              <input type="number" step="0.01" value={Math.round(spent * 100) / 100} onChange={e => setSpent(Math.round((Number(e.target.value) || 0) * 100) / 100)} style={inputStyle}
+                onFocus={e => { e.target.style.borderColor = 'rgba(37,99,235,0.4)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; }}
+                onBlur={e => { e.target.style.borderColor = 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
+            </div>
+            {/* Visual ratio */}
+            <div style={{ padding: '16px', borderRadius: 16, background: remaining >= 0 ? 'rgba(22,163,74,0.06)' : 'rgba(220,38,38,0.06)', border: `1px solid ${remaining >= 0 ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)'}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Wallet size={16} style={{ color: remaining >= 0 ? '#16a34a' : '#dc2626' }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#555' }}>
+                  {remaining >= 0 ? 'Mai ai de cheltuit:' : 'Ai depășit bugetul cu:'}
+                </span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: remaining >= 0 ? '#16a34a' : '#dc2626', marginLeft: 'auto' }}>
+                  {Math.abs(remaining).toLocaleString()} RON
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* AI Tips */}
+        <div ref={tipsRef} style={{ ...glass, padding: '32px', animation: 'budgetFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.45s both' }}>
+          <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1a1a1a', marginBottom: 20, letterSpacing: '-0.01em' }}>💡 Sfaturi AI</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              { text: 'Cheltuielile pe alimente au crescut cu 12% față de luna trecută. Scanează bonurile ca să vezi unde se duc banii.', color: '#f59e0b' },
+              { text: 'Ai economisit 8% pe facturi — continuă așa! Compară furnizori pe pagina de facturi.', color: '#16a34a' },
+              { text: 'Setează un buget maxim pe categorie pentru a primi alerte când te apropii de limită.', color: '#2563eb' },
+            ].map((tip, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10, padding: '14px 16px',
+                borderRadius: 16, background: `${tip.color}08`, border: `1px solid ${tip.color}15`,
+                opacity: tipsVisible ? 1 : 0, transform: tipsVisible ? 'translateY(0)' : 'translateY(12px)',
+                transition: `all 0.5s cubic-bezier(.22,1,.36,1) ${0.1 + i * 0.1}s`,
+              }}>
+                <Sparkles size={14} style={{ color: tip.color, flexShrink: 0, marginTop: 2 }} />
+                <p style={{ fontSize: 13, color: '#555', margin: 0, lineHeight: 1.6 }}>{tip.text}</p>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Budget Settings + AI Tips */}
-        <div className="space-y-6">
-          {/* Configure Budget */}
-          <div className="hud-panel p-6 animate-scale-in stagger-5">
-            <h3 className="text-sm font-hud text-neon-cyan tracking-wider uppercase mb-4 flex items-center gap-2">
-              <Settings size={16} />
-              Configurare Buget
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs text-dark-300 mb-2">Introduceți bugetul (RON)</label>
-                <input
-                  type="number"
-                  value={budget}
-                  onChange={(e) => setBudget(Number(e.target.value) || 0)}
-                  className="input-hud"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-dark-300 mb-2">Cheltuieli luna aceasta (RON)</label>
-                <input
-                  type="number"
-                  value={spent}
-                  onChange={(e) => setSpent(Number(e.target.value) || 0)}
-                  className="input-hud"
-                />
-              </div>
-              {/* Progress bar */}
-              <div className="mt-4">
-                <div className="flex justify-between text-xs text-dark-400 mb-2">
-                  <span>0 RON</span>
-                  <span>{budget.toLocaleString()} RON</span>
-                </div>
-                <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full rounded-full transition-all duration-1000 ease-out"
-                    style={{ 
-                      width: `${Math.min((spent / budget) * 100, 100)}%`,
-                      background: spent / budget > 0.8 ? 'linear-gradient(90deg, #f72585, #ff6b35)' : 'linear-gradient(90deg, #00f5a0, #00d9ff)'
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Tips */}
-          <div className="hud-panel p-6 animate-scale-in stagger-6 glass-cyan">
-            <h3 className="text-sm font-hud text-neon-cyan tracking-wider uppercase mb-3 flex items-center gap-2">
-              <Brain size={16} />
-              Sfaturi AI pentru Buget
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-start gap-3 text-sm text-dark-200">
-                <Sparkles size={16} className="text-neon-yellow flex-shrink-0 mt-0.5" />
-                <p>
-                  <strong className="text-white">Sfat AI:</strong> „Ați cheltuit mai mult decât luna trecută pe alimente. 
-                  Vă sugerăm o scanare a frigiderului pentru a reduce risipa."
-                </p>
-              </div>
-              <div className="flex items-start gap-3 text-sm text-dark-200">
-                <Sparkles size={16} className="text-neon-green flex-shrink-0 mt-0.5" />
-                <p>Ați economisit <strong className="text-neon-green">12%</strong> față de luna anterioară pe facturi.</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
+
+      <style>{`
+        @keyframes budgetFadeUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes budgetFloat1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-12px,10px)} }
+        @keyframes budgetFloat2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(10px,-12px)} }
+      `}</style>
     </div>
   );
 }

@@ -8,10 +8,14 @@ const {
   updateProduct,
   deleteProduct,
   getStats,
+  useRecipe,
 } = require('../controllers/productController');
 
 // Stats trebuie ÎNAINTE de /:id ca să nu fie interpretat ca ID
 router.get('/stats/summary', getStats);
+
+// Use recipe — scade ingredientele
+router.post('/use-recipe', useRecipe);
 
 // CRUD
 router.get('/', getAllProducts);

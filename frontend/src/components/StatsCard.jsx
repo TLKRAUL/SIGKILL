@@ -2,27 +2,28 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 export default function StatsCard({ icon: Icon, label, value, sublabel, trend, color = 'accent' }) {
   const colorMap = {
-    accent: { icon: 'text-accent-400', border: 'border-accent-500/20', glow: 'rgba(108,92,231,0.15)' },
-    green: { icon: 'text-neon-green', border: 'border-neon-green/20', glow: 'rgba(0,245,160,0.15)' },
-    blue: { icon: 'text-neon-blue', border: 'border-neon-blue/20', glow: 'rgba(0,217,255,0.15)' },
-    pink: { icon: 'text-neon-pink', border: 'border-neon-pink/20', glow: 'rgba(247,37,133,0.15)' },
-    orange: { icon: 'text-neon-orange', border: 'border-neon-orange/20', glow: 'rgba(255,107,53,0.15)' },
-    yellow: { icon: 'text-neon-yellow', border: 'border-neon-yellow/20', glow: 'rgba(255,209,102,0.15)' },
-    cyan: { icon: 'text-neon-cyan', border: 'border-neon-cyan/20', glow: 'rgba(0,255,245,0.15)' },
+    accent: { icon: 'text-accent-light', bg: 'rgba(99,102,241,0.12)' },
+    green: { icon: 'text-success', bg: 'rgba(34,197,94,0.12)' },
+    blue: { icon: 'text-info', bg: 'rgba(59,130,246,0.12)' },
+    pink: { icon: 'text-danger', bg: 'rgba(239,68,68,0.12)' },
+    orange: { icon: 'text-warning', bg: 'rgba(245,158,11,0.12)' },
+    yellow: { icon: 'text-warning', bg: 'rgba(245,158,11,0.12)' },
+    cyan: { icon: 'text-info', bg: 'rgba(59,130,246,0.12)' },
   };
 
   const c = colorMap[color] || colorMap.accent;
 
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
-  const trendColor = trend === 'up' ? 'text-neon-green' : trend === 'down' ? 'text-neon-pink' : 'text-dark-300';
+  const trendColor = trend === 'up' ? 'text-success' : trend === 'down' ? 'text-danger' : 'text-text-muted';
 
   return (
-    <div className={`hud-panel p-5 hud-corners group border ${c.border}`}>
+    <div className="stat-card group">
       <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${c.icon} transition-all duration-300 group-hover:scale-110`}
-          style={{ background: c.glow }}
+        <div
+          className={`icon-container icon-container-sm rounded-xl ${c.icon} transition-transform group-hover:scale-110`}
+          style={{ background: c.bg }}
         >
-          <Icon size={20} />
+          <Icon size={18} />
         </div>
         {trend && (
           <div className={`flex items-center gap-1 text-xs font-medium ${trendColor}`}>
@@ -30,9 +31,9 @@ export default function StatsCard({ icon: Icon, label, value, sublabel, trend, c
           </div>
         )}
       </div>
-      <p className="text-2xl font-hud font-bold text-white mb-1">{value}</p>
-      <p className="text-xs text-dark-300 font-medium">{label}</p>
-      {sublabel && <p className="text-[10px] text-dark-400 mt-1">{sublabel}</p>}
+      <p className="text-2xl font-bold text-text-primary mb-1">{value}</p>
+      <p className="text-xs text-text-secondary font-medium">{label}</p>
+      {sublabel && <p className="text-[10px] text-text-muted mt-1">{sublabel}</p>}
     </div>
   );
 }

@@ -1,164 +1,120 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Send, X, Sparkles, User, Loader2 } from 'lucide-react';
+import { Send, X, Loader2, Bot } from 'lucide-react';
 import { askAI } from '../api/apiClient';
 
 export default function AIAssistant() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: 'Salut! 👋 Sunt asistentul tău AI. Te pot ajuta cu rețete, planificarea meselor, sau orice întrebare. Cu ce te pot ajuta?',
-    },
+    { role: 'assistant', content: 'Salut! 👋 Cu ce te pot ajuta?' },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
-
-  useEffect(() => {
-    if (open && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [open]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const userMessage = input.trim();
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
-
     try {
       const response = await askAI(userMessage);
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: response.answer || response.message || 'Hmm, nu am un răspuns acum. Încearcă din nou!' },
-      ]);
+      setMessages(prev => [...prev, { role: 'assistant', content: response.answer || 'Hmm...' }]);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'Scuze, am întâmpinat o eroare. Backend-ul nu răspunde momentan. 😅' },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Eroare. Încearcă din nou. 😅' }]);
+    } finally { setLoading(false); }
   };
 
   return (
     <>
-      {/* Floating Button */}
-      <button
-        onClick={() => setOpen(!open)}
-        id="ai-assistant-toggle"
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-2xl ${
-          open
-            ? 'bg-dark-700 border border-neon-cyan/20 rotate-90 scale-90'
-            : 'bg-gradient-to-br from-neon-cyan/80 to-neon-blue/60 hover:scale-110 shadow-[0_0_30px_rgba(0,217,255,0.25)]'
-        }`}
-      >
-        {open ? <X size={22} className="text-dark-200" /> : <Bot size={24} className="text-white" />}
+      <button onClick={() => setOpen(!open)} id="ai-assistant-toggle"
+        style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 50,
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '12px 22px', borderRadius: 50, border: 'none', cursor: 'pointer',
+          fontFamily: "'Inter',-apple-system,sans-serif", fontSize: 13, fontWeight: 700,
+          transition: 'all 0.3s cubic-bezier(.22,1,.36,1)',
+          background: open ? 'rgba(255,255,255,0.6)' : '#1a1a1a',
+          color: open ? '#888' : 'white',
+          backdropFilter: open ? 'blur(20px)' : 'none',
+          boxShadow: open ? '0 4px 20px rgba(0,0,0,0.06)' : '0 4px 20px rgba(0,0,0,0.2)',
+          animation: 'aiFabEntry 0.5s cubic-bezier(.22,1,.36,1) both',
+        }}
+        onMouseEnter={e => { if (!open) { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.25)'; }}}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = open ? '0 4px 20px rgba(0,0,0,0.06)' : '0 4px 20px rgba(0,0,0,0.2)'; }}>
+        {open ? <><X size={15} /> Închide</> : <><Bot size={15} /> ASK HOME AI</>}
       </button>
 
-      {/* Chat Panel */}
       {open && (
-        <div
-          className="fixed bottom-24 right-6 z-50 w-[380px] max-h-[520px] hud-panel shadow-2xl shadow-black/40 flex flex-col overflow-hidden animate-scale-in"
-          id="ai-chat-panel"
-        >
-          {/* Header */}
-          <div className="px-5 py-4 border-b border-[rgba(0,217,255,0.1)] flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center">
-              <Sparkles size={18} className="text-neon-cyan" />
+        <div style={{
+          position: 'fixed', bottom: 80, right: 24, zIndex: 50,
+          width: 380, maxWidth: 'calc(100vw - 48px)', maxHeight: 500,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(40px) saturate(180%)',
+          border: '1px solid rgba(255,255,255,0.7)', borderRadius: 24,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.1)',
+          animation: 'aiPanelIn 0.3s cubic-bezier(.22,1,.36,1) both',
+        }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(77,208,200,0.12)', border: '1px solid rgba(77,208,200,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 14 }}>🤖</span>
             </div>
             <div>
-              <h4 className="text-sm font-hud font-bold text-white tracking-wider">AI ASISTENT</h4>
-              <p className="text-[10px] text-neon-cyan/50">Powered by Gemini</p>
+              <h4 style={{ fontSize: 13, fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Home AI</h4>
+              <p style={{ fontSize: 9, color: '#999', margin: 0 }}>Powered by Claude</p>
             </div>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-[280px]">
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 260 }}>
             {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
-              >
-                {msg.role === 'assistant' && (
-                  <div className="w-7 h-7 rounded-lg bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center flex-shrink-0 mt-1">
-                    <Bot size={14} className="text-neon-cyan" />
-                  </div>
-                )}
-                <div
-                  className={`max-w-[75%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-neon-cyan/20 text-white rounded-br-md border border-neon-cyan/15'
-                      : 'bg-[rgba(0,217,255,0.03)] text-dark-100 rounded-bl-md border border-[rgba(0,217,255,0.08)]'
-                  }`}
-                >
-                  {msg.content}
-                </div>
-                {msg.role === 'user' && (
-                  <div className="w-7 h-7 rounded-lg bg-neon-green/10 border border-neon-green/20 flex items-center justify-center flex-shrink-0 mt-1">
-                    <User size={14} className="text-neon-green" />
-                  </div>
-                )}
+              <div key={i} style={{ display: 'flex', gap: 6, justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                {msg.role === 'assistant' && <span style={{ fontSize: 14, marginTop: 4 }}>🤖</span>}
+                <div style={{
+                  maxWidth: '78%', padding: '10px 14px', borderRadius: 18, fontSize: 13, lineHeight: 1.5,
+                  ...(msg.role === 'user'
+                    ? { background: '#1a1a1a', color: 'white', fontWeight: 500, borderBottomRightRadius: 6 }
+                    : { background: 'rgba(0,0,0,0.04)', color: '#555', borderBottomLeftRadius: 6, border: '1px solid rgba(0,0,0,0.06)' }
+                  ),
+                }}>{msg.content}</div>
               </div>
             ))}
             {loading && (
-              <div className="flex gap-2 animate-fade-in">
-                <div className="w-7 h-7 rounded-lg bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center flex-shrink-0">
-                  <Bot size={14} className="text-neon-cyan" />
-                </div>
-                <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-[rgba(0,217,255,0.03)] border border-[rgba(0,217,255,0.08)]">
-                  <Loader2 size={16} className="animate-spin text-neon-cyan" />
+              <div style={{ display: 'flex', gap: 6 }}><span style={{ fontSize: 14 }}>🤖</span>
+                <div style={{ padding: '12px 16px', borderRadius: 18, borderBottomLeftRadius: 6, background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)' }}>
+                  <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: '#0d9488' }} />
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
-          <div className="px-4 py-3 border-t border-[rgba(0,217,255,0.1)]">
-            <div className="flex items-center gap-2 bg-[rgba(0,217,255,0.03)] border border-[rgba(0,217,255,0.1)] rounded-xl px-3 py-1">
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Întreabă-mă orice..."
-                className="flex-1 bg-transparent text-sm text-white placeholder-dark-400 py-2.5 outline-none"
-                id="ai-chat-input"
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || loading}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                  input.trim() && !loading
-                    ? 'bg-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/30 border border-neon-cyan/30'
-                    : 'bg-dark-600 text-dark-400'
-                }`}
-                id="ai-chat-send"
-              >
-                <Send size={14} />
+          <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '2px 4px 2px 14px' }}>
+              <input ref={inputRef} type="text" value={input} onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }}}
+                placeholder="Întreabă ceva..."
+                style={{ flex: 1, background: 'transparent', fontSize: 13, color: '#1a1a1a', padding: '10px 0', outline: 'none', border: 'none', fontFamily: 'inherit' }} />
+              <button onClick={handleSend} disabled={!input.trim() || loading} style={{
+                width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                background: input.trim() && !loading ? '#1a1a1a' : 'rgba(0,0,0,0.04)',
+                color: input.trim() && !loading ? 'white' : '#ccc',
+              }}>
+                <Send size={13} />
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes aiFabEntry { from { opacity:0; transform:translateY(16px) scale(0.9) } to { opacity:1; transform:translateY(0) scale(1) } }
+        @keyframes aiPanelIn { from { opacity:0; transform:translateY(8px) scale(0.96) } to { opacity:1; transform:translateY(0) scale(1) } }
+      `}</style>
     </>
   );
 }

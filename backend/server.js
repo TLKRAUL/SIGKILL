@@ -6,6 +6,9 @@ const mongoose = require('mongoose');
 const productRoutes = require('./routes/productRoutes');
 const receiptRoutes = require('./routes/receiptRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const authRoutes = require('./routes/authRoutes');
+const billRoutes = require('./routes/billRoutes');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
 
 const app = express();
 
@@ -42,14 +45,20 @@ app.get('/api/test', (req, res) => {
   res.json({
     mesaj: 'Conexiune reușită cu SIGKILL Backend! 🚀',
     database: dbConnected ? 'connected' : 'disconnected',
-    ai: process.env.GEMINI_API_KEY ? 'configured' : 'not configured',
+    ai: process.env.CLAUDE_API_KEY ? 'configured (Claude Haiku)' : 'not configured',
   });
 });
 
 // API Routes
-app.use('/api/pantry', productRoutes);
-app.use('/api/receipts', receiptRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api/auth', authRoutes);                           // Public (login/register)
+app.use('/api/subscription', subscriptionRoutes);           // Has its own auth
+
+// Protected routes — require JWT token
+const auth = require('./middleware/auth');
+app.use('/api/pantry', auth, productRoutes);
+app.use('/api/receipts', auth, receiptRoutes);
+app.use('/api/ai', auth, aiRoutes);
+app.use('/api/bills', auth, billRoutes);
 
 // ===== Error Handler =====
 app.use((err, req, res, next) => {
