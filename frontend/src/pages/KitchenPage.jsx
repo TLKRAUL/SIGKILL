@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Plus, Search, RefreshCw, X, Clock, Sparkles, Brain, Trash2, CalendarDays, Check, ChefHat, Flame, Users, Lightbulb
 } from 'lucide-react';
-import { getPantryItems, addItem, deleteItem, updateItem, getRecipes, useRecipe } from '../api/apiClient';
+import { getPantryItems, addItem, deleteItem, updateItem, getRecipes, useRecipe, getUserData, setUserData } from '../api/apiClient';
 
 const categories = ['Toate', 'Lactate', 'Fructe', 'Legume', 'Carne', 'Panificație', 'Băuturi', 'Conserve', 'Condimente', 'Dulciuri', 'Altele'];
 const units = ['buc', 'kg', 'g', 'L', 'ml'];
@@ -30,10 +30,10 @@ const wasteData = [
 export default function KitchenPage() {
   const [items, setItems] = useState([]);
   const [recipe, setRecipe] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('sigkill_recipe')); } catch { return null; }
+    try { return getUserData('recipe', null); } catch { return null; }
   });
   const [allRecipes, setAllRecipes] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('sigkill_all_recipes')) || []; } catch { return []; }
+    try { return getUserData('all_recipes', []); } catch { return []; }
   });
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [showRecipeModal, setShowRecipeModal] = useState(false);
@@ -64,8 +64,8 @@ export default function KitchenPage() {
       if (Array.isArray(data) && data.length > 0) {
         setRecipe(data[0]);
         setAllRecipes(data);
-        localStorage.setItem('sigkill_recipe', JSON.stringify(data[0]));
-        localStorage.setItem('sigkill_all_recipes', JSON.stringify(data));
+        setUserData('recipe', data[0]);
+        setUserData('all_recipes', data);
       }
     } catch {}
     setLoadingRecipe(false);
@@ -73,7 +73,7 @@ export default function KitchenPage() {
 
   const switchRecipe = (r) => {
     setRecipe(r);
-    localStorage.setItem('sigkill_recipe', JSON.stringify(r));
+    setUserData('recipe', r);
     setRecipeMsg(null);
   };
 

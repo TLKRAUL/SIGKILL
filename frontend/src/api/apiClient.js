@@ -22,6 +22,25 @@ const clearAllData = () => {
   Object.keys(localStorage).filter(k => k.startsWith('sigkill_')).forEach(k => localStorage.removeItem(k));
 };
 
+// Per-user localStorage helpers — isolates data between accounts
+export const getUserKey = (key) => {
+  const user = localStorage.getItem('sigkill_user');
+  if (!user) return `sigkill_${key}`;
+  try {
+    const uid = JSON.parse(user).id;
+    return `sigkill_${uid}_${key}`;
+  } catch { return `sigkill_${key}`; }
+};
+export const getUserData = (key, fallback = null) => {
+  try {
+    const val = localStorage.getItem(getUserKey(key));
+    return val !== null ? JSON.parse(val) : fallback;
+  } catch { return fallback; }
+};
+export const setUserData = (key, value) => {
+  localStorage.setItem(getUserKey(key), JSON.stringify(value));
+};
+
 export const registerUser = async (name, email, password) => {
   const response = await api.post('/auth/register', { name, email, password });
   if (response.data.token) {
@@ -48,9 +67,9 @@ export const getCurrentUser = () => {
 };
 
 export const logoutUser = () => {
-  // Clear all sigkill_ data from localStorage
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('sigkill_'));
-  keys.forEach(k => localStorage.removeItem(k));
+  localStorage.removeItem('sigkill_token');
+  localStorage.removeItem('sigkill_user');
+  // Don't clear per-user data so it persists if they log back in
 };
 
 export const isLoggedIn = () => !!localStorage.getItem('sigkill_token');

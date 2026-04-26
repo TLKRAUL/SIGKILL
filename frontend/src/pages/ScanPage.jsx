@@ -3,7 +3,7 @@ import {
   Camera, Upload, Loader2, CheckCircle2, X, Image as ImageIcon,
   Package, RefreshCw, FileText, ShoppingBag, ScanLine, Settings, Copy
 } from 'lucide-react';
-import { uploadReceipt, scanProduct, getBills, getReceipts } from '../api/apiClient';
+import { uploadReceipt, scanProduct, getBills, getReceipts, getUserData, setUserData } from '../api/apiClient';
 
 const tabs = [
   { id: 'receipt', label: 'Bon fiscal', emoji: '🧾' },
@@ -102,8 +102,8 @@ export default function ScanPage() {
       // Adaugă suma bonului la cheltuielile din buget
       const totalAmount = data?.receipt?.totalAmount || data?.product?.price || 0;
       if (totalAmount > 0) {
-        const currentSpent = Number(localStorage.getItem('sigkill_spent')) || 0;
-        localStorage.setItem('sigkill_spent', currentSpent + totalAmount);
+        const currentSpent = getUserData('spent', 0);
+        setUserData('spent', currentSpent + totalAmount);
       }
     } catch (err) {
       const serverError = err?.response?.data;

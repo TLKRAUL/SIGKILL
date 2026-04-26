@@ -3,7 +3,7 @@ import {
   FileText, CheckCircle2, XCircle, Clock, Loader2, X,
   Camera, Upload, Search, Trash2, TrendingUp, ScanLine, Plus
 } from 'lucide-react';
-import { getBills, scanBill, updateBill, deleteBill, findBetterSupplier } from '../api/apiClient';
+import { getBills, scanBill, updateBill, deleteBill, findBetterSupplier, getUserData, setUserData } from '../api/apiClient';
 
 const statusConfig = {
   paid: { label: 'Plătit', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
@@ -30,12 +30,12 @@ export default function BillsPage() {
   const [showAddRecurring, setShowAddRecurring] = useState(false);
   const [newRecurring, setNewRecurring] = useState({ name: '', amount: '', emoji: '💳', cycle: 'lunar' });
   const [recurring, setRecurringState] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('sigkill_recurring')) || []; } catch { return []; }
+    try { return getUserData('recurring', []); } catch { return []; }
   });
   const setRecurring = (val) => {
     const data = typeof val === 'function' ? val(recurring) : val;
     setRecurringState(data);
-    localStorage.setItem('sigkill_recurring', JSON.stringify(data));
+    setUserData('recurring', data);
     return data;
   };
   const fileRef = useRef(null);
@@ -55,8 +55,8 @@ export default function BillsPage() {
       setBills(prev => prev.map(b => b._id === id ? updated : b));
       // Adaugă suma facturii la cheltuielile din buget
       if (bill?.amount) {
-        const currentSpent = Number(localStorage.getItem('sigkill_spent')) || 0;
-        localStorage.setItem('sigkill_spent', currentSpent + bill.amount);
+        const currentSpent = getUserData('spent', 0);
+        setUserData('spent', currentSpent + bill.amount);
       }
     } catch {}
   };
@@ -350,8 +350,8 @@ export default function BillsPage() {
               const amount = parseFloat(newRecurring.amount);
               setRecurring(prev => [...prev, { ...newRecurring, id: Date.now(), amount, color: colors[Math.floor(Math.random() * colors.length)] }]);
               // Adaugă la cheltuielile din buget
-              const currentSpent = Number(localStorage.getItem('sigkill_spent')) || 0;
-              localStorage.setItem('sigkill_spent', currentSpent + amount);
+              const currentSpent = getUserData('spent', 0);
+              setUserData('spent', currentSpent + amount);
               setNewRecurring({ name: '', amount: '', emoji: '💳', cycle: 'lunar' });
               setShowAddRecurring(false);
             }} disabled={!newRecurring.name || !newRecurring.amount}

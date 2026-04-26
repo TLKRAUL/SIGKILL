@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Settings, Sparkles, ArrowRight, Wallet } from 'lucide-react';
-import { getPantryItems, getBills } from '../api/apiClient';
+import { getPantryItems, getBills, getUserData, setUserData } from '../api/apiClient';
 
 const useInView = (threshold = 0.1) => {
   const ref = useRef(null);
@@ -37,12 +37,8 @@ const Donut = ({ percent, color, size = 160, strokeWidth = 12, label, value }) =
 };
 
 export default function BudgetPage() {
-  const [budget, setBudgetState] = useState(() => {
-    try { return Number(localStorage.getItem('sigkill_budget')) || 0; } catch { return 0; }
-  });
-  const [spent, setSpentState] = useState(() => {
-    try { return Number(localStorage.getItem('sigkill_spent')) || 0; } catch { return 0; }
-  });
+  const [budget, setBudgetState] = useState(() => getUserData('budget', 0));
+  const [spent, setSpentState] = useState(() => getUserData('spent', 0));
   const [categories, setCategories] = useState([
     { name: 'Alimente', amount: 0, color: '#4dd0c8', emoji: '🛒' },
     { name: 'Facturi', amount: 0, color: '#2563eb', emoji: '📄' },
@@ -53,8 +49,8 @@ export default function BudgetPage() {
   const [catRef, catVisible] = useInView(0.05);
   const [tipsRef, tipsVisible] = useInView(0.05);
 
-  const setBudget = (val) => { setBudgetState(val); localStorage.setItem('sigkill_budget', val); };
-  const setSpent = (val) => { setSpentState(val); localStorage.setItem('sigkill_spent', val); };
+  const setBudget = (val) => { setBudgetState(val); setUserData('budget', val); };
+  const setSpent = (val) => { setSpentState(val); setUserData('spent', val); };
 
   // Calculează categorii de cheltuieli din date reale
   useEffect(() => {
@@ -64,7 +60,7 @@ export default function BudgetPage() {
           getPantryItems().catch(() => []),
           getBills().catch(() => []),
         ]);
-        const recurring = JSON.parse(localStorage.getItem('sigkill_recurring') || '[]');
+        const recurring = getUserData('recurring', []);
 
         const alimenteTotal = (pantry || []).reduce((s, p) => s + (p.price || 0), 0);
         const facturiTotal = (bills || []).filter(b => b.status === 'paid').reduce((s, b) => s + (b.amount || 0), 0);
