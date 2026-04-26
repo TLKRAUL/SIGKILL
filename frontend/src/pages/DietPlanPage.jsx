@@ -180,7 +180,7 @@ export default function DietPlanPage() {
         /* ===== RESULTS ===== */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Stats Header */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, animation: 'dietFadeUp 0.7s cubic-bezier(.22,1,.36,1) both' }}>
+          <div className="dashboard-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, animation: 'dietFadeUp 0.7s cubic-bezier(.22,1,.36,1) both' }}>
             {[
               { val: plan.bmi?.toFixed(1), label: `BMI · ${plan.bmiCategory}`, color: plan.bmi < 25 ? '#16a34a' : plan.bmi < 30 ? '#f59e0b' : '#dc2626', icon: null },
               { val: plan.dailyCalories, label: 'kcal / zi', color: '#0d9488', icon: <Flame size={16} /> },
@@ -202,7 +202,7 @@ export default function DietPlanPage() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+          <div className="dashboard-charts-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
             {/* Days */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1a1a1a', marginBottom: 4 }}>📅 Plan pe 7 zile</h3>

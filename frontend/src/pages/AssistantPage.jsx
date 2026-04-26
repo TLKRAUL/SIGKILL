@@ -107,7 +107,7 @@ export default function AssistantPage() {
       {/* Content */}
       <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 72 }}>
 
-        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, padding: '0 32px 24px', overflow: 'hidden' }}>
+        <div className="dashboard-charts-grid" style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20, padding: '0 32px 24px', overflow: 'hidden' }}>
 
           {/* ===== LEFT: Chat ===== */}
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>

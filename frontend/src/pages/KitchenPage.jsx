@@ -200,7 +200,7 @@ export default function KitchenPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '4fr 3fr 5fr', gap: 16, position: 'relative', zIndex: 2 }}>
+      <div className="dashboard-charts-grid" style={{ display: 'grid', gridTemplateColumns: '4fr 3fr 5fr', gap: 16, position: 'relative', zIndex: 2 }}>
         {/* Inventar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: 'rgba(255,255,255,0.55)', backdropFilter: 'blur(30px) saturate(140%)', border: '1px solid rgba(255,255,255,0.6)', borderRadius: 24, boxShadow: '0 4px 24px rgba(0,0,0,0.04)', padding: '24px', animation: 'kitFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.1s both' }}>

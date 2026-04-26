@@ -120,7 +120,7 @@ export default function BudgetPage() {
       </div>
 
       {/* 3 stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
+      <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
         {[
           { icon: TrendingUp, label: 'Venit lunar', value: `${budget.toLocaleString()} RON`, color: '#16a34a', delay: 0.1 },
           { icon: TrendingDown, label: 'Cheltuieli', value: `${spent.toLocaleString()} RON`, color: '#dc2626', delay: 0.15 },
@@ -151,7 +151,7 @@ export default function BudgetPage() {
       </div>
 
       {/* Main grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
+      <div className="dashboard-charts-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
 
         {/* Big donut */}
         <div style={{ ...glass, padding: '32px', animation: 'budgetFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.3s both', display: 'flex', flexDirection: 'column' }}>

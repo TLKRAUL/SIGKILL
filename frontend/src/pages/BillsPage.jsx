@@ -123,7 +123,7 @@ export default function BillsPage() {
           </div>
 
           {/* Stat Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+          <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
             {[
               { label: 'Facturi Scadente', val: unpaidCount, sub: 'Necesită acțiune', icon: <FileText size={18} style={{ color: '#dc2626' }} />, valColor: '#dc2626' },
               { label: 'Sumă Totală', val: `${totalDue.toLocaleString()} RON`, sub: 'Valoare totală estimată', icon: <TrendingUp size={18} style={{ color: '#f59e0b' }} />, valColor: '#1a1a1a' },
@@ -160,9 +160,10 @@ export default function BillsPage() {
             ...glass, overflow: 'hidden', padding: 0,
             animation: 'billFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.25s both'
           }}>
+           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
             {/* Header */}
             <div style={{
-              display: 'grid', gridTemplateColumns: '48px 1fr 1fr 120px 120px 80px',
+              display: 'grid', gridTemplateColumns: '48px 1fr 1fr 120px 120px 80px', minWidth: 600,
               padding: '14px 24px', borderBottom: '1px solid rgba(0,0,0,0.06)',
               fontSize: 12, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em'
             }}>
@@ -196,7 +197,7 @@ export default function BillsPage() {
                 const st = statusConfig[bill.status] || statusConfig.unpaid;
                 return (
                   <div key={bill._id} className="group" style={{
-                    display: 'grid', gridTemplateColumns: '48px 1fr 1fr 120px 120px 80px',
+                    display: 'grid', gridTemplateColumns: '48px 1fr 1fr 120px 120px 80px', minWidth: 600,
                     padding: '16px 24px', borderBottom: '1px solid rgba(0,0,0,0.04)',
                     alignItems: 'center', transition: 'background 0.15s',
                   }}
@@ -236,6 +237,7 @@ export default function BillsPage() {
                 );
               })
             )}
+          </div>
           </div>
 
           {/* Recurring Payments */}

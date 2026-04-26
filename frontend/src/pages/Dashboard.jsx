@@ -118,7 +118,7 @@ export default function HomePage() {
       </div>
 
       {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
+      <div className="dashboard-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
         {[
           { icon: Package, label: 'Produse', value: totalProducts, color: '#4dd0c8', delay: 0.1 },
           { icon: AlertTriangle, label: 'Expiră curând', value: expiring, color: '#f59e0b', delay: 0.15 },
@@ -150,7 +150,7 @@ export default function HomePage() {
       </div>
 
       {/* Dashboard grid - 2 columns */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
+      <div className="dashboard-charts-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24, position: 'relative', zIndex: 2 }}>
 
         {/* Budget donut card */}
         <div style={{ ...glass, padding: '28px', animation: 'homeFadeUp 0.7s cubic-bezier(.22,1,.36,1) 0.3s both', display: 'flex', flexDirection: 'column' }}>
@@ -292,7 +292,7 @@ export default function HomePage() {
           opacity: featVisible ? 1 : 0, transform: featVisible ? 'translateY(0)' : 'translateY(12px)',
           transition: 'all 0.5s cubic-bezier(.22,1,.36,1)',
         }}>Explorează funcționalitățile</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <div className="dashboard-actions-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           {features.map((f, i) => {
             const Icon = f.icon;
             return (

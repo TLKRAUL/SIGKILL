@@ -85,7 +85,7 @@ export default function LoginPage() {
         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '0 24px 48px', position: 'relative', zIndex: 2,
       }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px 1fr', gap: 40, maxWidth: 1100, width: '100%', alignItems: 'center' }}>
+        <div className="dashboard-charts-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 420px 1fr', gap: 40, maxWidth: 1100, width: '100%', alignItems: 'center' }}>
 
           {/* Left side — feature cards */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'flex-end' }}>

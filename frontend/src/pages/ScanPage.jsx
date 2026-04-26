@@ -133,7 +133,7 @@ export default function ScanPage() {
       <div style={{ position:'absolute', width:450, height:450, borderRadius:'50%', background:'radial-gradient(circle,rgba(77,208,200,0.1) 0%,transparent 70%)', top:'-10%', right:'-5%', animation:'scanFloat1 10s ease-in-out infinite', pointerEvents:'none' }} />
       <div style={{ position:'absolute', width:350, height:350, borderRadius:'50%', background:'radial-gradient(circle,rgba(37,99,235,0.06) 0%,transparent 70%)', bottom:'5%', left:'-5%', animation:'scanFloat2 12s ease-in-out infinite', pointerEvents:'none' }} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 6fr 4fr', gap: 16, position: 'relative', zIndex: 2 }}>
+      <div className="dashboard-charts-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 6fr 4fr', gap: 16, position: 'relative', zIndex: 2 }}>
 
         {/* ===== LEFT COLUMN ===== */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
